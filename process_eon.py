@@ -97,6 +97,7 @@ if __name__ == "__main__":
     for i in gens:
         frames=numpy.where(assignments==i)[0]
         file=('eon-molecule%s_hits.pdb' % i) 
+        parse(file, output='g%s' % i, climit=len(frames))
     numpy.savetxt('molecule_gens.dat', database[gens], fmt='%s')
     numpy.savetxt('gens.dat', gens, fmt='%i')
     numpy.savetxt('assignments.dat', assignments, fmt='%i')
