@@ -33,6 +33,7 @@ def parse(file, output, climit):
                     new.write(line)
         else:
 		    new.write(line)
+    return
                 
 
 
