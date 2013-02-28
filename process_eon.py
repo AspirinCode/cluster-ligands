@@ -101,4 +101,5 @@ if __name__ == "__main__":
     numpy.savetxt('gens.dat', gens, fmt='%i')
     numpy.savetxt('assignments.dat', assignments, fmt='%i')
     numpy.savetxt('distances.dat', distances)
+    print "done"
 
