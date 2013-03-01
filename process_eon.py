@@ -110,8 +110,7 @@ if __name__ == "__main__":
     database=numpy.loadtxt('%s/dbase.list' % dir, dtype=str)
     rankmatrix, matrix=get_matrix(dir, database)
     gens, assignments, distances=cluster(tanimotoc, matrix, database)
-    #for i in gens:
-    for i in range(0, 1):
+    for i in gens:
         frames=numpy.where(assignments==i)[0]
         file=('%s/eon-molecule%s_hits.pdb' % (dir, (i+1))) 
         pdbframes=numpy.zeros((len(frames)))
@@ -123,12 +122,12 @@ if __name__ == "__main__":
             scores[z]=1-matrix[i, j]
         order=numpy.argsort(scores)[::-1]
         print "g%s dbase.list frames: " % i, pdbframes[order]
-        print "g%s dbase.list molecules: " % i, [i+1 for i in frames[order]]
+        print "g%s dbase.list molecules: " % i, [b+1 for b in frames[order]]
         print "g%s dbase.list scores: " % i, scores[order]
         parse(dir, file, output='g%s' % i, pdbframes=pdbframes)
+    numpy.savetxt('%s/scores.dat' % dir, [1-d for d in distances])
     numpy.savetxt('%s/molecule_gens.dat' % dir, database[gens], fmt='%s')
     numpy.savetxt('%s/gens.dat' % dir, gens, fmt='%i')
     numpy.savetxt('%s/assignments.dat' % dir, assignments, fmt='%i')
-    numpy.savetxt('%s/distances.dat' % dir, distances)
     print "done"
 
