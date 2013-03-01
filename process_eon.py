@@ -115,12 +115,16 @@ if __name__ == "__main__":
         frames=numpy.where(assignments==i)[0]
         file=('%s/eon-molecule%s_hits.pdb' % (dir, (i+1))) 
         pdbframes=numpy.zeros((len(frames)))
+        scores=numpy.zeros((len(frames)))
         for (z, j) in enumerate(frames):
-            j=j+1
-            location=numpy.where(rankmatrix[i]==j)[0]
+            k=j+1
+            location=numpy.where(rankmatrix[i]==k)[0]
             pdbframes[z]=location
-        order=numpy.argsort(pdbframes)
-        print "g%s dbase.list molecules: " % i, pdbframes[order], [i+1 for i in frames[order]]
+            scores[z]=1-matrix[i, j]
+        order=numpy.argsort(scores)[::-1]
+        print "g%s dbase.list frames: " % i, pdbframes[order]
+        print "g%s dbase.list molecules: " % i, [i+1 for i in frames[order]]
+        print "g%s dbase.list scores: " % i, scores[order]
         parse(dir, file, output='g%s' % i, pdbframes=pdbframes)
     numpy.savetxt('%s/molecule_gens.dat' % dir, database[gens], fmt='%s')
     numpy.savetxt('%s/gens.dat' % dir, gens, fmt='%i')
