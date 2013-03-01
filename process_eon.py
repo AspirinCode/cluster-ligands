@@ -7,19 +7,17 @@ from msmbuilder import Trajectory
 
 # make a metric, where you have a grid of all distances to all
 # call evaluation by matrix order
-def parse(file, output, climit):
+def parse(dir, file, output, pdbframes):
     fhandle=open(file)
-    pattern=None
     count=0
     pattern=None
     for line in fhandle.readlines():
-        if 'COMPND' in line:
-            if count==climit:
-                break
-            elif pattern==None:
+        if 'COMPND' in line and count in pdbframes:
+            print "writing dbase.list molecule %s" % count
+            if pattern==None:
                 pattern=line.split()[1]
                 print pattern
-                new=open('%s_%s.pdb' % (output, pattern), 'w')
+                new=open('%s/%s_%s.pdb' % (dir, output, pattern), 'w')
                 new.write(line)
             else:
                 newpattern=line.split()[1]
@@ -29,19 +27,23 @@ def parse(file, output, climit):
                     pattern=line.split()[1]
                     print pattern
                     count+=1
-                    new=open('%s_%s.pdb' % (output, pattern), 'w')
+                    new=open('%s/%s_%s.pdb' % (dir, output, pattern), 'w')
                     new.write(line)
-        else:
+        elif 'COMPND' in line and count not in pdbframes:
+            count+=1
+        elif count in pdbframes:
 		    new.write(line)
+        else:
+            pass
     return
                 
 
-
-def get_matrix(database):
+def get_matrix(dir, database):
     matrix=numpy.zeros((len(database), len(database)))
+    rankmatrix=numpy.zeros((len(database), len(database)), dtype=int)
     for n in range(0, len(database)):
         m=n+1
-        file=open('eon-molecule%s.rpt' % m)
+        file=open('%s/eon-molecule%s.rpt' % (dir, m))
         pb_T=[]
         #comb_T=[]
         #shape_T=[]
@@ -57,7 +59,8 @@ def get_matrix(database):
         order=numpy.argsort(names)
         for i in range(0, len(pb_T)):
             matrix[n,i]=pb_T[order][i]
-    return matrix
+            rankmatrix[n,i]=names[i]
+    return rankmatrix, matrix
 
 def cluster(distance_cutoff, matrix, database):
     distance_cutoff=float(distance_cutoff)
@@ -84,23 +87,35 @@ def cluster(distance_cutoff, matrix, database):
 
 def parse_commandline():
     parser = optparse.OptionParser()
-    parser.add_option('-d', '--distance', dest='distance',
-                      help='cluster distance')
+    parser.add_option('-d', '--dir', dest='dir',
+                      help='directory')
+    parser.add_option('-t', '--tanimotoc', dest='tanimotoc',
+                      help='tanimoto cutoff (inverse)')
     (options, args) = parser.parse_args()
     return (options, args)
 
 if __name__ == "__main__":
     (options, args) = parse_commandline()
-    database=numpy.loadtxt('dbase.list', dtype=str)
-    matrix=get_matrix(database)
-    gens, assignments, distances=cluster(options.distance, matrix, database)
-    for i in gens:
+    dir=options.dir
+    tanimotoc=options.tanimotoc
+    database=numpy.loadtxt('%s/dbase.list' % dir, dtype=str)
+    rankmatrix, matrix=get_matrix(dir, database)
+    gens, assignments, distances=cluster(tanimotoc, matrix, database)
+    #for i in gens:
+    for i in range(0, 1):
         frames=numpy.where(assignments==i)[0]
-        file=('eon-molecule%s_hits.pdb' % i) 
-        parse(file, output='g%s' % i, climit=len(frames))
-    numpy.savetxt('molecule_gens.dat', database[gens], fmt='%s')
-    numpy.savetxt('gens.dat', gens, fmt='%i')
-    numpy.savetxt('assignments.dat', assignments, fmt='%i')
-    numpy.savetxt('distances.dat', distances)
+        file=('%s/eon-molecule%s_hits.pdb' % (dir, (i+1))) 
+        pdbframes=numpy.zeros((len(frames)))
+        for (z, j) in enumerate(frames):
+            j=j+1
+            location=numpy.where(rankmatrix[i]==j)[0]
+            pdbframes[z]=location
+        order=numpy.argsort(pdbframes)
+        print "g%s dbase.list molecules: " % i, pdbframes[order], [i+1 for i in frames[order]]
+        parse(dir, file, output='g%s' % i, pdbframes=pdbframes)
+    numpy.savetxt('%s/molecule_gens.dat' % dir, database[gens], fmt='%s')
+    numpy.savetxt('%s/gens.dat' % dir, gens, fmt='%i')
+    numpy.savetxt('%s/assignments.dat' % dir, assignments, fmt='%i')
+    numpy.savetxt('%s/distances.dat' % dir, distances)
     print "done"
 
