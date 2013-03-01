@@ -12,28 +12,37 @@ def parse(dir, file, output, pdbframes):
     count=0
     pattern=None
     for line in fhandle.readlines():
-        if 'COMPND' in line and count in pdbframes:
-            print "writing dbase.list molecule %s" % count
-            if pattern==None:
+        if 'CRYS' in line:
+            pass
+        elif 'query' in line:
+            pass
+        elif 'COMPND' in line:
+            # below covers the first round
+            if pattern==None and count in pdbframes:
                 pattern=line.split()[1]
+                print "writing dbase.list molecule %s" % count
                 print pattern
                 new=open('%s/%s_%s.pdb' % (dir, output, pattern), 'w')
                 new.write(line)
-            else:
-                newpattern=line.split()[1]
-                if newpattern==pattern:
-                    new.write(line)
-                else:
+            elif pattern==None and count not in pdbframes:
+                pattern=line.split()[1]
+                #don't increment bc this stays frame 0
+                pass
+            elif pattern!=None:
+                count+=1
+                if count in pdbframes:
                     pattern=line.split()[1]
+                    print "writing dbase.list molecule %s" % count
                     print pattern
-                    count+=1
                     new=open('%s/%s_%s.pdb' % (dir, output, pattern), 'w')
                     new.write(line)
-        elif 'COMPND' in line and count not in pdbframes:
-            count+=1
-        elif count in pdbframes:
+                else:
+                    pass
+        elif pattern!=None and count in pdbframes:
 		    new.write(line)
-        else:
+        elif pattern!=None and count not in pdbframes:
+            pass
+        elif pattern==None:
             pass
     return
                 
