@@ -1,0 +1,55 @@
+#Interface settings
+
+#Execute Options :   
+    -param  rocs-moleculeNNN.parm
+    #-pvmconf (Not set, no default)
+
+#InputOptions :   
+    -query  MOLECULE
+    #-mcquery  false
+    -dbase  dbase.list
+    #-scdbase  false
+
+#OutputOptions :   
+    -prefix  rocs-moleculeNNN
+    #-outputdir (Not set, no default)
+    #-besthits  500
+    #-cutoff  -1.000000
+    #-rankby  TanimotoCombo
+    #-maxconfs  1
+    #-maxhits  0
+
+#ShapeOptions :   
+    #-shapeonly  false
+    #-tanimoto_cutoff  -1.000000
+    #-subtan  false
+    #-randomstarts (Not set, no default)
+    #-opt  true
+    #-scoreonly  false
+
+#ColorOptions :   
+    #-chemff  ImplicitMillsDean
+    #-optchem  true
+
+#HitsOutputOptions :   
+    #-conflabel  title
+    #-outputquery  true
+    #-nostructs  false
+    -hitsfile  .pdb
+    #-oformat  sdf
+
+#ReportOutputOptions :   
+    #-report  each
+    #-reportfile (Not set, no default)
+    #-stats  hits
+
+#LogOutputOptions :   
+    #-logfile (Not set, no default)
+    #-progress  percent
+    #-verbose  false
+
+#EONInputOptions :   
+    -eon_input  true
+    #-eon_maxconfs  3
+    #-eon_input_size  1000
+    #-eon_input_file (Not set, no default)
