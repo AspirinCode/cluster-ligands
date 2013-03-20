@@ -15,61 +15,24 @@ params = {'legend.fontsize': 14,
           'legend.linewidth': 2}
 pylab.rcParams.update(params)
 
-def name_catch(line, index1, index2):
-    if "CL" == line.split()[1] or "ICI"==line.split()[1]:
-        index1+=1   
-        index2+=1   
-        catch=True
-    elif "CL" == line.split()[0] or "ICI"==line.split()[0]:
-        index1+=1   
-        index2+=1   
-        catch=True
-        if "CL" == line.split()[2] or "ICI"==line.split()[2]:
-            index1+=1   
-            index2+=1   
-            catch=True
-        else:
-            pass
-    elif "CL" == line.split()[2] or "ICI" == line.split()[2]:
-        index1+=1   
-        index2+=1   
-        catch=True
-        if "CL" == line.split()[0] or "ICI"==line.split()[0]:
-            index1+=1   
-            index2+=1   
-            catch=True
-        else:
-            pass
-    else:
-        catch=False
-    return catch, index1, index2
-
-
 def main(dir, prefix):
     state=dir.split('results/')[1].strip('/')
     files=glob.glob('%s/%s*rpt' % (dir, prefix))
     data=dict()
     data['combo']=[]
     for file in files:
-        fhandle=open(file)
-        for line in fhandle.readlines():
-            catch=False
-            index1=3
-            index2=6
-            if 'Rank' not in line:
-                if catch is False:
-                    catch, index1, index2=name_catch(line,index1, index2)  
-                else:
-                    pass
-                sum=float(line.split()[index1])+float(line.split()[index2])
-                if sum<0:
-                    data['combo'].append(0)
-                elif sum >0 and sum<= 2.0:
-                    data['combo'].append((sum))
-                elif sum>2.0:
-                    import pdb
-                    pdb.set_trace()
-                    print sum
+        column3=numpy.loadtxt(file, usecols=(3,))
+        column6=numpy.loadtxt(file, usecols=(6,))
+        for (pb, shape) in zip(column3, column6):
+            sum=(pb+shape)
+            if sum<0:
+                data['combo'].append(0)
+            elif sum >0 and sum<= 2.0:
+                data['combo'].append((sum))
+            elif sum>2.0:
+                import pdb
+                pdb.set_trace()
+                print sum
     pylab.figure()
     type='combo'
     results=pylab.hist(data[type], alpha=0.7, bins=20, normed=True) #, label='shape+PB combo')
