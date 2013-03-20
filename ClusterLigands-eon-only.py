@@ -60,12 +60,10 @@ def get_matrix(dir, prefix, database, column, max, add=False):
         k=0
         for line in file.readlines():
             if 'Rank' not in line.split():
-                name=line.split()[0]
+                name=int(line.split()[0])
                 location=numpy.where(database==name)[0]
                 names[k]=name
                 indices[k]=location
-                names.append(name)
-                indices.append(location)
                 if add==True:
                     score[k]=(max-(float(line.split()[column[0]])+float(line.split()[column[1]])))
                     k+=1

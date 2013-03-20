@@ -1,8 +1,4 @@
-the following are the same molecule:
-stereo-123600-1_000.mol2
-stereo-182176-1_000.mol2
-stereo-2083-1_000.mol2
-stereo-7028-0.mol2 
-stereo-9294-0.mol2
+# removed duplicates
 
-adding a check that if openeye doesn't score it, they have Tanimoto=2 (1)
+now am clustering the bindingdb molecules (just finished), use these as seeds to cluster the GDD agonist set
+apply a cutoff that if they are not with X distance to one of these seed gens, make a new gen

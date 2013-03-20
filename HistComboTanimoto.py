@@ -15,20 +15,61 @@ params = {'legend.fontsize': 14,
           'legend.linewidth': 2}
 pylab.rcParams.update(params)
 
+def name_catch(line, index1, index2):
+    if "CL" == line.split()[1] or "ICI"==line.split()[1]:
+        index1+=1   
+        index2+=1   
+        catch=True
+    elif "CL" == line.split()[0] or "ICI"==line.split()[0]:
+        index1+=1   
+        index2+=1   
+        catch=True
+        if "CL" == line.split()[2] or "ICI"==line.split()[2]:
+            index1+=1   
+            index2+=1   
+            catch=True
+        else:
+            pass
+    elif "CL" == line.split()[2] or "ICI" == line.split()[2]:
+        index1+=1   
+        index2+=1   
+        catch=True
+        if "CL" == line.split()[0] or "ICI"==line.split()[0]:
+            index1+=1   
+            index2+=1   
+            catch=True
+        else:
+            pass
+    else:
+        catch=False
+    return catch, index1, index2
 
-def main(state):
-    dir='/home/mlawrenz/wontkill/new-results/apo-%s' % state
-    files=glob.glob('%s/eon-only-molecule*rpt' % dir)
+
+def main(dir, prefix):
+    state=dir.split('results/')[1].strip('/')
+    files=glob.glob('%s/%s*rpt' % (dir, prefix))
     data=dict()
     data['combo']=[]
     for file in files:
-        name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
-        os.system('sed "1d" < %s > %s' % (file, name))
-        tmp1=numpy.loadtxt(name, usecols=(3,))    
-        tmp3=numpy.loadtxt(name, usecols=(6,))    
-        for (i, j) in zip(tmp1, tmp3):
-            data['combo'].append((i+j))
-
+        fhandle=open(file)
+        for line in fhandle.readlines():
+            catch=False
+            index1=3
+            index2=6
+            if 'Rank' not in line:
+                if catch is False:
+                    catch, index1, index2=name_catch(line,index1, index2)  
+                else:
+                    pass
+                sum=float(line.split()[index1])+float(line.split()[index2])
+                if sum<0:
+                    data['combo'].append(0)
+                elif sum >0 and sum<= 2.0:
+                    data['combo'].append((sum))
+                elif sum>2.0:
+                    import pdb
+                    pdb.set_trace()
+                    print sum
     pylab.figure()
     type='combo'
     results=pylab.hist(data[type], alpha=0.7, bins=20, normed=True) #, label='shape+PB combo')
@@ -46,18 +87,20 @@ def main(state):
     pylab.ylim(0,2)
     pylab.xlabel('Shape + PB Tanimoto Scores')
     pylab.ylabel('Normed Probability')
-    pylab.title('State %s' % state)
-    pylab.savefig('%s/eon_only_agonist_apo%s_combo_tanimotos.png' % (dir, state), dpi=300)
+    pylab.title('%s' % state)
+    pylab.savefig('%s/%s_%s_combo_tanimotos.png' % (dir, prefix, state), dpi=300)
     pylab.show()
 
 def parse_commandline():
     parser = optparse.OptionParser()
-    parser.add_option('-s', '--state', dest='state',
-                      help='state')
+    parser.add_option('-d', '--dir', dest='dir',
+                      help='dir')
+    parser.add_option('-p', '--prefix', dest='prefix',
+                      help='prefix')
     (options, args) = parser.parse_args()
     return (options, args)
 
 if __name__ == "__main__":
     (options, args) = parse_commandline()
-    main(state=options.state)
+    main(dir=options.dir, prefix=options.prefix)
                                     
