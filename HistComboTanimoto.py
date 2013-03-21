@@ -21,8 +21,10 @@ def main(dir, prefix):
     data=dict()
     data['combo']=[]
     for file in files:
-        column3=numpy.loadtxt(file, usecols=(3,))
-        column6=numpy.loadtxt(file, usecols=(6,))
+        name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
+        os.system('sed "1d" < %s > %s' % (file, name))
+        column3=numpy.loadtxt(name, usecols=(3,))
+        column6=numpy.loadtxt(name, usecols=(6,))
         for (pb, shape) in zip(column3, column6):
             sum=(pb+shape)
             if sum<0:
@@ -36,8 +38,8 @@ def main(dir, prefix):
     pylab.figure()
     type='combo'
     results=pylab.hist(data[type], alpha=0.7, bins=20, normed=True) #, label='shape+PB combo')
-    colors=['black', 'magenta', 'cyan']
-    cutoffs=[0.05, 0.10, 0.2]
+    colors=['black', 'magenta', 'cyan', 'green']
+    cutoffs=[0.01, 0.05, 0.10, 0.2]
     for (color, cutoff) in zip(colors, cutoffs):
         num=len(data[type])*cutoff
         test=sorted(data[type])[::-1][:int(num)]
