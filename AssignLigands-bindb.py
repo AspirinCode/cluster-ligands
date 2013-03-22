@@ -1,4 +1,5 @@
 from msmbuilder import metrics
+import os
 import sys
 import optparse
 import pickle
@@ -37,11 +38,18 @@ def parse(dir, file, output, patterns):
     return
 
 
-def get_matrix(dir, prefix, database, column, max, add=False):
-    matrix=numpy.zeros((len(database), len(database)))
-    rankmatrix=numpy.zeros((len(database), len(database)), dtype=int)
-    for n in range(0, len(database)):
-        m=n+1
+def get_matrix(dir, database, reference, column, max, add=False, frames=None, prefix='eon-bindb'):
+    if frames is not None:
+        list=frames
+        reference=reference[frames]
+        matrix=numpy.zeros((len(reference), len(database)))
+        rankmatrix=numpy.zeros((len(reference), len(database)), dtype=int)
+    else:
+        list=range(0, len(reference))
+        matrix=numpy.zeros((len(reference), len(database)))
+        rankmatrix=numpy.zeros((len(reference), len(database)), dtype=int)
+    for (n,element) in enumerate(list):
+        m=element+1
         file=open('%s/%s%s.rpt' % (dir, prefix, m))
         score=-100*numpy.ones((len(database)))
         indices=-100*numpy.ones((len(database)))
@@ -54,39 +62,42 @@ def get_matrix(dir, prefix, database, column, max, add=False):
                 # look at GDD molecule name, score, index for BINDB molecule
                 name=str(line.split()[0])
                 location=numpy.where(database==name)[0]
-                names[k]=name
-                indices[k]=location
-                if add==True:
-                    score[k]=(max-(float(line.split()[index1])+float(line.split()[index2])))
-                    if score[k]<0:
-                        import pdb
-                        pdb.set_trace()
-                    k+=1
+                if location.size:
+                    names[k]=name
+                    indices[k]=location
+                    if add==True:
+                        score[k]=(max-(float(line.split()[index1])+float(line.split()[index2])))
+                        if score[k]<0:
+                            import pdb
+                            pdb.set_trace()
+                        k+=1
+                    else:
+                        score[k]=(max-float(line.split()[index1]))
+                        k+=1
                 else:
-                    score[k]=(max-float(line.split()[index1]))
-                    k+=1
+                    pass
         order=numpy.argsort(indices)
         for i in range(0, len(score)):
             matrix[n,i]=score[order][i]
             rankmatrix[n,i]=indices[i]
     return rankmatrix, matrix
 
-def assign(matrix):
-    distances=numpy.zeros(len(database))
-    assignments=numpy.zeros(len(database), dtype=int)
+def assign(matrix, database, cutoff):
+    distances=-1*numpy.ones(len(database))
+    assignments=-1*numpy.ones(len(database), dtype=int)
     for j in xrange(len(distances)):
         d=matrix[:,j]
-        assignments[j] = int(numpy.argmin(d))
-        distances[j] = d[assignments[j]]
+        ind=numpy.argmin(d)
+        if not d[ind] < cutoff:
+            pass
+        else:
+            assignments[j] = int(numpy.argmin(d))
+            distances[j] = d[assignments[j]]
     return assignments, distances
  
-def cluster(distance_cutoff, matrix, database, gens=None):
-    if gens!=None:
-        assignments=numpy.arange(0, len(reference))
-        distance_list = numpy.inf * numpy.ones(len(reference), dtype=numpy.float32)
-    else:
-        distance_list = numpy.inf * numpy.ones(len(database), dtype=numpy.float32)
-        assignments = -1 * numpy.ones(len(database), dtype=int)
+def cluster(distance_cutoff, matrix, database):
+    distance_list = numpy.inf * numpy.ones(len(database), dtype=numpy.float32)
+    assignments = -1 * numpy.ones(len(database), dtype=int)
     distance_cutoff=float(distance_cutoff)
     # set k to be the highest 32bit integer
     k = sys.maxint
@@ -108,12 +119,10 @@ def cluster(distance_cutoff, matrix, database, gens=None):
 
 def parse_commandline():
     parser = optparse.OptionParser()
-    parser.add_option('-d', '--dir', dest='dir',
-                      help='directory')
-    parser.add_option('-p', '--prefix', dest='prefix',
-                      help='prefix to rocs/eon output - note that need to read dbase.list file of all molecule pdb names')
-    parser.add_option('-t', '--tanimoto', dest='tanimoto',
-                      help='tanimoto types: pb, shape, combo (pb + shape)')
+    parser.add_option('-g', '--genindices', dest='genindices',
+                      help='gens list')
+    parser.add_option('-d', '--dbase', dest='dbase',
+                      help='database list')
     parser.add_option('-c', '--cutoff', dest='cutoff',
                       help='tanimoto cutoff')
     parser.add_option('-w', action="store_true", dest="writepdb")
@@ -122,51 +131,65 @@ def parse_commandline():
 
 if __name__ == "__main__":
     (options, args) = parse_commandline()
-    dir=options.dir
-    tanimoto=options.tanimoto
     cutoff=float(options.cutoff)
-    prefix=options.prefix
-    if tanimoto=='pb':
-        print "using PB Tanimoto score"
-        column=3
-        max=1
-        add=False
-    elif tanimoto=='shape':
-        print "using shape Tamimoto score"
-        column=6
-        max=1
-        add=False
-    elif tanimoto=='combo':
-        print "using combo PB and shape Tamimoto score"
-        column=[3,6]
-        max=2
-        add=True
+    dbase=options.dbase
+    dir=os.path.dirname(dbase)
+    genindices=options.genindices
+    max=2
+    prefix=os.path.basename(genindices).split('_combo')[0]
+    print "using combo PB and shape Tamimoto score"
+    column=[3,6]
+    add=True
     cutoff=max-cutoff
-    database=[x.split('molecule_')[1].split('.pdb')[0] for x in numpy.loadtxt('%s/dbase.list' % dir, dtype=str)]
-    database=numpy.array(database)
-    rankmatrix, matrix=get_matrix(dir, prefix, database, column, max, add)
-    gens, assignments, distances=cluster(cutoff, matrix, database)
-    for i in gens:
+    formatted=[]
+    database=numpy.loadtxt(dbase, dtype=str)
+    for x in database:
+        if 'ZINC' in x:
+            formatted.append(x.split('_000.mol2')[0])
+        else:
+            formatted.append(x.split('_000.mol2')[0].split('stereo-')[1].split('-')[0])
+    database=numpy.array(formatted)
+    genindices=numpy.loadtxt(genindices, dtype=int)
+    reference=numpy.loadtxt('/home/mlawrenz/wontkill/new-results/bindingdb/dbase.list', dtype=str)
+    rankmatrix, matrix=get_matrix(dir, database, reference, column, max, add, frames=genindices, prefix=prefix)
+    assignments, distances=assign(matrix, database, cutoff)
+    #save the above assignments, distances
+    database_frames=numpy.where(assignments==-1)[0]
+    rankmatrix, matrix=get_matrix(dir, database[database_frames], database, column, max, add, frames=database_frames, prefix='eon-only-molecule')
+    newgenindices, newassignments, newdistances=cluster(cutoff, matrix, database_frames)
+    newgenindices=database_frames[newgenindices]
+    numpy.savetxt('%s/gdd_combo_%s_gen_indices.dat' % (dir, (max-cutoff)), newgenindices, fmt='%i')
+    data_gens=database[newgenindices]
+    numpy.savetxt('%s/gdd_combo_%s_gen_names.dat' % (dir, (max-cutoff)), data_gens, fmt='%s')
+    numpy.savetxt('%s/bindb_combo_%s_gen_indices.dat' % (dir, (max-cutoff)), genindices, fmt='%i')
+    bindb_gens=reference[genindices]
+    numpy.savetxt('%s/bindb_combo_%s_gen_names.dat' % (dir, (max-cutoff)), bindb_gens, fmt='%s')
+    prefix='bindb'
+    n=1
+    for i in genindices:
         frames=numpy.where(assignments==i)[0]
-        ohandle=open('%s/%s_%s_%s_%s_g%s.dat' % (dir, prefix, database[i], tanimoto, (max-cutoff), i), 'w')
-        for (name, val) in zip(database[frames], distances[frames]):
-            ohandle.write('%s\t%s\n' % (name, (max-val)))
-        if options.writepdb==True:
-            j=i+1
-            file='%s/mod-eon-bindb%s_hits.pdb' % (dir, j)
-            output='g%s_%s' % (i, max-cutoff)
-            parse(dir, file, output, database[frames])
-    numpy.savetxt('%s/%s_%s_%s_gens.dat' % (dir, prefix, tanimoto, (max-cutoff)), gens, fmt='%i')
-    #assignments, distances=assign(matrix)
-    #for (n, i) in enumerate(database):
-    #    name=i.split('.pdb')[0].split('_')[1]
-    #    frames=numpy.where(assignments==n)[0]
-    #    if len(frames!=0):
-    #        ohandle=open('%s/%s_%s_%s_%s_g%s.dat' % (dir, prefix, tanimoto, (max-cutoff), name, n), 'w')
-    #        for (name, val) in zip(database[frames], distances[frames]):
-    #            ohandle.write('%s\t%s\n' % (name, (max-val)))
-    #numpy.savetxt('%s/%s_%s_%s_scores.dat' % (dir, prefix,  tanimoto, (max-cutoff)), [1-d for d in distances])
-    #numpy.savetxt('%s/%s_%s_%s_gens.dat' % (dir, prefix, tanimoto, (max-cutoff)), gens, fmt='%i')
-    #numpy.savetxt('%s/%s_%s_%s_assignments.dat' % (dir, prefix, tanimoto, (max-cutoff)), assignments, fmt='%i')
-    print "done"
+        if frames.size:
+            ohandle=open('%s/%s_combo_%s_g%s.dat' % (dir, prefix, (max-cutoff), n), 'w')
+            for (name, val) in zip(database[frames], distances[frames]):
+                ohandle.write('%s\t%s\n' % (name, (max-val)))
+            if options.writepdb==True:
+                j=i+1
+                file='%s/eon-%s%s_hits.pdb' % (dir, j)
+                output='g%s_%s' % (n, max-cutoff)
+                parse(dir, file, output, database[frames])
+            n+=1
+    prefix='gdd'
+    for i in newgenindices:
+        frames=numpy.where(newassignments==i)[0]
+        if frames.size:
+            ohandle=open('%s/%s_combo_%s_g%s.dat' % (dir, prefix,  (max-cutoff), n), 'w')
+            for (name, val) in zip(database[frames], newdistances[frames]):
+                ohandle.write('%s\t%s\n' % (name, (max-val)))
+            if options.writepdb==True:
+                k=i+1
+                file='%s/eon-only-molecule%s_hits.pdb' % (dir, k)
+                output='g%s_%s' % (n, max-cutoff)
+                parse(dir, file, output, database[frames])
+            n+=1
+    print "%s gens total done" % n
 
