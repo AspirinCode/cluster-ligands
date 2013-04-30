@@ -6,6 +6,24 @@ import pickle
 import numpy
 from msmbuilder import Trajectory
 
+def format_names(list):
+    formatted=[]
+    for x in list:
+        if 'ZINC' in x:
+            base=os.path.basename(x)
+            formatted.append(base.split('_000.mol2')[0].split('new-')[1])
+        elif 'stereo' in x:
+            base=os.path.basename(x)
+            formatted.append(base.split('_000.mol2')[0].split('stereo-')[1].split('-')[0])
+        elif 'molecule' in x:
+            if 'omega' in x:
+                base=os.path.basename(x)
+                formatted.append(base.split('_92.pdb')[0].split('molecule_')[1])
+            else:
+                base=os.path.basename(x)
+                formatted.append(base.split('.pdb')[0].split('molecule_')[1])
+    return numpy.array(formatted)
+
 # make a metric, where you have a grid of all distances to all
 # call evaluation by matrix order
 def parse(dir, file, output, patterns):
@@ -38,32 +56,27 @@ def parse(dir, file, output, patterns):
     return
 
 
-def get_matrix(dir, database, reference, column, max, add=False, frames=None, prefix='eon-bindb'):
-    if frames is not None:
-        list=frames
-        reference=reference[frames]
-        matrix=numpy.zeros((len(reference), len(database)))
-        rankmatrix=numpy.zeros((len(reference), len(database)), dtype=int)
-    else:
-        list=range(0, len(reference))
-        matrix=numpy.zeros((len(reference), len(database)))
-        rankmatrix=numpy.zeros((len(reference), len(database)), dtype=int)
+def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bindb'):
+    list=range(0, len(database))
+    matrix=numpy.zeros((len(database), len(reference)))
+    rankmatrix=numpy.zeros((len(database), len(reference)), dtype=int)
+    # loop over database
     for (n,element) in enumerate(list):
         m=element+1
-        file=open('%s/%s%s.rpt' % (dir, prefix, m))
-        score=-100*numpy.ones((len(database)))
-        indices=-100*numpy.ones((len(database)))
-        names=numpy.zeros((len(database)), dtype=str)
+        file=open('%s/new-eon-%s-%s.rpt' % (dir, prefix, m))
+        score=-100*numpy.ones((len(reference)))
+        indices=-100*numpy.ones((len(reference)))
+        names=[]
         k=0
         index1=column[0]
         index2=column[1]
         for line in file.readlines():
             if 'Rank' not in line.split():
-                # look at GDD molecule name, score, index for BINDB molecule
+                # looping over files for each member of dbase, matched with gens
                 name=str(line.split()[0])
-                location=numpy.where(database==name)[0]
+                location=numpy.where(reference==name)[0]
                 if location.size:
-                    names[k]=name
+                    names.append(name)
                     indices[k]=location
                     if add==True:
                         score[k]=(max-(float(line.split()[index1])+float(line.split()[index2])))
@@ -75,8 +88,10 @@ def get_matrix(dir, database, reference, column, max, add=False, frames=None, pr
                         score[k]=(max-float(line.split()[index1]))
                         k+=1
                 else:
+                    print "no location for %s", name
                     pass
         order=numpy.argsort(indices)
+        names=numpy.array(names)
         for i in range(0, len(score)):
             matrix[n,i]=score[order][i]
             rankmatrix[n,i]=indices[i]
@@ -85,8 +100,8 @@ def get_matrix(dir, database, reference, column, max, add=False, frames=None, pr
 def assign(matrix, database, cutoff):
     distances=-1*numpy.ones(len(database))
     assignments=-1*numpy.ones(len(database), dtype=int)
-    for j in xrange(len(distances)):
-        d=matrix[:,j]
+    for j in xrange(matrix.shape[0]):
+        d=matrix[j,:]
         ind=numpy.argmin(d)
         if not d[ind] < cutoff:
             pass
@@ -119,7 +134,7 @@ def cluster(distance_cutoff, matrix, database):
 
 def parse_commandline():
     parser = optparse.OptionParser()
-    parser.add_option('-g', '--genindices', dest='genindices',
+    parser.add_option('-g', '--gens', dest='gens',
                       help='gens list')
     parser.add_option('-d', '--dbase', dest='dbase',
                       help='database list')
@@ -134,67 +149,22 @@ if __name__ == "__main__":
     cutoff=float(options.cutoff)
     dbase=options.dbase
     dir=os.path.dirname(dbase)
-    genindices=options.genindices
+    gens=numpy.loadtxt(options.gens, dtype='str')
     max=2
-    prefix=os.path.basename(genindices).split('_combo')[0]
+    prefix='gens'
     print "using combo PB and shape Tamimoto score"
     column=[3,6]
     add=True
     cutoff=max-cutoff
-    formatted=[]
     database=numpy.loadtxt(dbase, dtype=str)
-    for x in database:
-        if 'ZINC' in x:
-            formatted.append(x.split('_000.mol2')[0])
-        else:
-            formatted.append(x.split('_000.mol2')[0].split('stereo-')[1].split('-')[0])
-    database=numpy.array(formatted)
-    genindices=numpy.loadtxt(genindices, dtype=int)
-    reference=numpy.loadtxt('/home/mlawrenz/wontkill/new-results/bindingdb/dbase.list', dtype=str)
-    rankmatrix, matrix=get_matrix(dir, database, reference, column, max, add, frames=genindices, prefix=prefix)
-    assignments, distances=assign(matrix, database, cutoff)
-    prefix='bindb'
-    n=1
-    for i in genindices:
-        frames=numpy.where(assignments==i)[0]
-        if frames.size:
-            ohandle=open('%s/%s_combo_%s_g%s.dat' % (dir, prefix, (max-cutoff), n), 'w')
-            for (name, val) in zip(database[frames], distances[frames]):
-                ohandle.write('%s\t%s\n' % (name, (max-val)))
-            if options.writepdb==True:
-                j=i+1
-                file='%s/eon-%s%s_hits.pdb' % (dir, prefix, j)
-                output='g%s_%s' % (n, max-cutoff)
-                parse(dir, file, output, database[frames])
-            n+=1
-    numpy.savetxt('%s/bindb_combo_%s_gen_indices.dat' % (dir, (max-cutoff)), genindices, fmt='%i')
-    bindb_gens=reference[genindices]
-    numpy.savetxt('%s/bindb_combo_%s_gen_names.dat' % (dir, (max-cutoff)), bindb_gens, fmt='%s')
-    #save the above assignments, distances
-    database_frames=numpy.where(assignments==-1)[0]
-    rankmatrix, matrix=get_matrix(dir, database[database_frames], database, column, max, add, frames=database_frames, prefix='eon-only-molecule')
-    newgenindices, newassignments, newdistances=cluster(cutoff, matrix, database_frames)
-    newgenindices=database_frames[newgenindices]
-    numpy.savetxt('%s/gdd_combo_%s_gen_indices.dat' % (dir, (max-cutoff)), newgenindices, fmt='%i')
-    data_gens=database[newgenindices]
-    numpy.savetxt('%s/gdd_combo_%s_gen_names.dat' % (dir, (max-cutoff)), data_gens, fmt='%s')
-    prefix='gdd'
+    format_dbase=format_names(database)
+    format_gens=format_names(gens)
+    # here pass in reference as the database
+    rankmatrix, matrix=get_matrix(dir, format_dbase, format_gens, column, max, add,  prefix=prefix)
+    assignments, distances=assign(matrix, format_dbase, cutoff)
     frames=numpy.where(assignments!=-1)[0]
-    assignments[frames]=[-100]*len(frames)
-    frames=numpy.where(assignments==-1)[0]
-    assignments[frames]=newassignments
-    distances[frames]=newdistances
-    for i in newgenindices:
-        frames=numpy.where(assignments==i)[0]
-        if frames.size:
-            ohandle=open('%s/%s_combo_%s_g%s.dat' % (dir, prefix,  (max-cutoff), n), 'w')
-            for (name, val) in zip(database[frames], distances[frames]):
-                ohandle.write('%s\t%s\n' % (name, (max-val)))
-            if options.writepdb==True:
-                k=i+1
-                file='%s/eon-only-molecule%s_hits.pdb' % (dir, k)
-                output='g%s_%s' % (n, max-cutoff)
-                parse(dir, file, output, database[frames])
-            n+=1
-    print "%s gens total done" % n
+    distances[frames]=[(max-i) for i in distances[frames]]
+    numpy.savetxt('%s-assignments.dat' % dbase.split('.list')[0], assignments)
+    numpy.savetxt('%s-distances.dat' % dbase.split('.list')[0], distances)
+    print "%s assigned to gens" % len(frames)
 
