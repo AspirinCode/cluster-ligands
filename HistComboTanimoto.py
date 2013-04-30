@@ -15,14 +15,13 @@ params = {'legend.fontsize': 14,
           'legend.linewidth': 2}
 pylab.rcParams.update(params)
 
-def main(dir, prefix):
-    state=dir.split('results/')[1].strip('/')
+def main(dir, prefix, title):
     files=glob.glob('%s/%s*rpt' % (dir, prefix))
     data=dict()
     data['combo']=[]
     for file in files:
         name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
-        os.system('sed "1d" < %s > %s' % (file, name))
+        os.system('sed "1d" < %s | sed "s/ICI 89406/ICI89406/g" > %s' % (file, name))
         column3=numpy.loadtxt(name, usecols=(3,))
         column6=numpy.loadtxt(name, usecols=(6,))
         for (pb, shape) in zip(column3, column6):
@@ -43,7 +42,7 @@ def main(dir, prefix):
     for (color, cutoff) in zip(colors, cutoffs):
         num=len(data[type])*cutoff
         test=sorted(data[type])[::-1][:int(num)]
-        numpy.savetxt('%s_cutoff%s_eon_only_tanimotos.txt' % (type, cutoff), test)
+        numpy.savetxt('%s_cutoff%s_%s_tanimotos.txt' % (type, prefix, cutoff), test)
         print cutoff, test[-1]
         list=numpy.arange(0,2,0.1)
         pylab.plot([test[-1]]*len(list), list, linewidth=5, color=color, label='%s%%' % int(cutoff*100))
@@ -52,8 +51,8 @@ def main(dir, prefix):
     pylab.ylim(0,2)
     pylab.xlabel('Shape + PB Tanimoto Scores')
     pylab.ylabel('Normed Probability')
-    pylab.title('%s' % state)
-    pylab.savefig('%s/%s_%s_combo_tanimotos.png' % (dir, prefix, state), dpi=300)
+    pylab.title('%s' % title)
+    pylab.savefig('%s/%s_%s_combo_tanimotos.png' % (dir, prefix, title), dpi=300)
     pylab.show()
 
 def parse_commandline():
@@ -62,10 +61,12 @@ def parse_commandline():
                       help='dir')
     parser.add_option('-p', '--prefix', dest='prefix',
                       help='prefix')
+    parser.add_option('-n', '--title', dest='title',
+                      help='title')
     (options, args) = parser.parse_args()
     return (options, args)
 
 if __name__ == "__main__":
     (options, args) = parse_commandline()
-    main(dir=options.dir, prefix=options.prefix)
+    main(dir=options.dir, prefix=options.prefix, title=options.title)
                                     
