@@ -9,12 +9,19 @@ from msmbuilder import Trajectory
 def format_names(list):
     formatted=[]
     for x in list:
-        if 'ZINC' in x:
-            base=os.path.basename(x)
-            formatted.append(base.split('_000.mol2')[0].split('new-')[1])
+        if '_000' in x:
+            if 'ZINC' in x:
+                base=os.path.basename(x)
+                formatted.append(base.split('_000.mol2')[0].split('new-')[1])
+            elif 'stereo' in x:
+                base=os.path.basename(x)
+                formatted.append(base.split('_000.mol2')[0].split('stereo-')[1].split('-')[0])
         elif 'stereo' in x:
             base=os.path.basename(x)
-            formatted.append(base.split('_000.mol2')[0].split('stereo-')[1].split('-')[0])
+            formatted.append(base.split('.mol2')[0].split('stereo-')[1].split('.')[0])
+        elif 'ZINC' in x:
+            base=os.path.basename(x)
+            formatted.append(base.split('.mol2')[0].split('ZINC')[0])
         elif 'molecule' in x:
             if 'omega' in x:
                 base=os.path.basename(x)
@@ -63,7 +70,10 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
     # loop over database
     for (n,element) in enumerate(list):
         m=element+1
-        file=open('%s/new-eon-%s-%s.rpt' % (dir, prefix, m))
+        file='%s/%s-%s.rpt' % (dir, prefix, m)
+        name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
+        os.system('sed "1d" < %s | sed "s/ICI 89406/ICI89406/g" > %s' % (file, name))
+        file=open(name)
         score=-100*numpy.ones((len(reference)))
         indices=-100*numpy.ones((len(reference)))
         names=[]
@@ -138,6 +148,8 @@ def parse_commandline():
                       help='gens list')
     parser.add_option('-d', '--dbase', dest='dbase',
                       help='database list')
+    parser.add_option('-p', '--prefix', dest='prefix',
+                      help='prefix name for rpt files')
     parser.add_option('-c', '--cutoff', dest='cutoff',
                       help='tanimoto cutoff')
     parser.add_option('-w', action="store_true", dest="writepdb")
@@ -147,11 +159,11 @@ def parse_commandline():
 if __name__ == "__main__":
     (options, args) = parse_commandline()
     cutoff=float(options.cutoff)
+    prefix=options.prefix
     dbase=options.dbase
     dir=os.path.dirname(dbase)
     gens=numpy.loadtxt(options.gens, dtype='str')
     max=2
-    prefix='gens'
     print "using combo PB and shape Tamimoto score"
     column=[3,6]
     add=True
@@ -167,4 +179,10 @@ if __name__ == "__main__":
     numpy.savetxt('%s-assignments.dat' % dbase.split('.list')[0], assignments)
     numpy.savetxt('%s-distances.dat' % dbase.split('.list')[0], distances)
     print "%s assigned to gens" % len(frames)
+    if options.writepdb==True:
+        for i in frames:
+            j=i+1
+            hitfile='%s/%s-%s_hits.pdb' % (dir, prefix, j)
+            output='g%s_%s' % (i, max-cutoff)
+            parse(dir, hitfile, output, database[frames])
 
