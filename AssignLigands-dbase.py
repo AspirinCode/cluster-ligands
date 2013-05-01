@@ -21,7 +21,7 @@ def format_names(list):
             formatted.append(base.split('.mol2')[0].split('stereo-')[1].split('.')[0])
         elif 'ZINC' in x:
             base=os.path.basename(x)
-            formatted.append(base.split('.mol2')[0].split('ZINC')[0])
+            formatted.append(base.split('.mol2')[0].split('ZINC')[1])
         elif 'molecule' in x:
             if 'omega' in x:
                 base=os.path.basename(x)
@@ -184,5 +184,5 @@ if __name__ == "__main__":
             j=i+1
             hitfile='%s/%s-%s_hits.pdb' % (dir, prefix, j)
             output='g%s_%s' % (i, max-cutoff)
-            parse(dir, hitfile, output, database[frames])
+            parse(dir, hitfile, output, format_dbase[frames])
 
