@@ -1,0 +1,40 @@
+#Interface settings
+
+#Execute Options :   
+    -param  eon-only-moleculeNNN.parm
+    #-pvmconf (Not set, no default)
+
+#InputOptions :   
+    -dbase  eon-dbase.mol2
+    -query MOLECULE
+    #-charges  mmff
+    #-scdbase  false
+
+#OutputOptions :   
+    -prefix  eon-only-moleculeNNN
+    -oformat  pdb
+    #-besthits  500
+    #-maxhits  0
+    #-rankby  ET_combo
+    #-cutoff  -1.000000
+    #-outputquery  true
+    #-scoreonly  false
+    #-hitsfile (Not set, no default)
+    #-reportfile (Not set, no default)
+
+#LogOutputOptions :   
+    #-logfile (Not set, no default)
+    #-progress  percent
+    #-statusfile (Not set, no default)
+    #-verbose  false
+
+#ZAP :   
+    #-fixpka_dbase  true
+    #-fixpka_query  true
+    #-salt  0.040000
+    #-writegrid  false
+
+#PVM :   
+    #-pvmdebug  false
+    #-pvmlog (Not set, no default)
+    #-pvmpass  3

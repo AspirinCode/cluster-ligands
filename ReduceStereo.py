@@ -27,11 +27,13 @@ def main(file):
                 pass
     print "final %s ligands" % (len(stereo.keys()))
     sorted_stereo=reversed(sorted(stereo.iteritems(), key=operator.itemgetter(1)))
-    ofile=open('reduce-%s' % file, 'w')
+    base=os.path.basename(file)
+    name=os.path.dirname(file)+'/reduce-'+os.path.basename(file)
+    ofile=open(name, 'w')
     for x in sorted_stereo:
-        os.system('sed "s/FILE/%s/g" < mol2pdb.tcl > tmp.tcl' % x[0])
-        os.system('vmd -dispdev text -e tmp.tcl')
-        print x[0], x[1]
+        #os.system('sed "s/FILE/%s/g" < mol2pdb.tcl > tmp.tcl' % x[0])
+        #os.system('vmd -dispdev text -e tmp.tcl')
+        #print x[0], x[1]
         ofile.write('%s\t%s\n' % (x[0], x[1]))
     ofile.close()
 

@@ -1,0 +1,4 @@
+# removed duplicates
+
+now am clustering the bindingdb molecules (just finished), use these as seeds to cluster the GDD agonist set
+apply a cutoff that if they are not with X distance to one of these seed gens, make a new gen
