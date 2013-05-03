@@ -1,4 +1,5 @@
 from msmbuilder import metrics
+import glob
 import os
 import sys
 import optparse
@@ -11,7 +12,11 @@ def format_stereo(list):
     for x in list:
         if 'stereo' in x:
             base=os.path.basename(x)
-            formatted.append(base.split('.mol2')[0].split('stereo-')[1])
+            tmp=base.split('.mol2')[0].split('stereo-')[1]
+            if len(tmp.split('.'))>1:
+                formatted.append('%s-%s' % (tmp.split('.')[0], tmp.split('.')[1]))
+            else:
+                formatted.append(tmp)
         elif 'ZINC' in x:
             base=os.path.basename(x)
             formatted.append(base.split('.mol2')[0].split('ZINC')[1])
@@ -87,7 +92,7 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
     list=range(0, len(database))
     matrix=numpy.zeros((len(database), len(reference)))
     rankmatrix=numpy.zeros((len(database), len(reference)), dtype=int)
-    files=glob.glob('%s/%s-*.rpt' % (dir, prefix)
+    files=glob.glob('%s/%s-*.rpt' % (dir, prefix))
     # loop over database
     n=0
     for file in files:
@@ -101,7 +106,8 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
         index1=column[0]
         index2=column[1]
         checkfile=False
-        for line in file.readlines():
+        fhandle=open(file)
+        for line in fhandle.readlines():
             if 'Rank' not in line.split():
                 # looping over files for each member of dbase, matched with gens
                 if checkfile==False:
@@ -188,11 +194,12 @@ if __name__ == "__main__":
     dir=os.path.dirname(dbase)
     max=2
     print "using combo PB and shape Tamimoto score"
+    tanimoto='combo'
     column=[3,6]
     add=True
     cutoff=max-cutoff
     database=numpy.loadtxt(dbase, dtype=str)
-    format_dbase=format_names(database)
+    format_dbase=format_stereo(database)
     # here pass in reference as the database
     rankmatrix, matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add,  prefix=prefix)
     gens, assignments, distances=cluster(cutoff, matrix, format_dbase)
