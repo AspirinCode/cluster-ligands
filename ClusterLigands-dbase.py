@@ -87,22 +87,28 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
     list=range(0, len(database))
     matrix=numpy.zeros((len(database), len(reference)))
     rankmatrix=numpy.zeros((len(database), len(reference)), dtype=int)
+    files=glob.glob('%s/%s-*.rpt' % (dir, prefix)
     # loop over database
-    for (n,element) in enumerate(list):
-        m=element+1
-        file='%s/%s-%s.rpt' % (dir, prefix, m)
+    n=0
+    for file in files:
         name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
-        os.system('sed "1d" < %s | sed "s/ICI 89406/ICI89406/g" > %s' % (file, name))
-        file=open(name)
+        #os.system('sed "1d" < %s | sed "s/ICI 89406/ICI89406/g" > %s' % (file, name))
+        #file=open(name)
         score=-100*numpy.ones((len(reference)))
         indices=-100*numpy.ones((len(reference)))
         names=[]
         k=0
         index1=column[0]
         index2=column[1]
+        checkfile=False
         for line in file.readlines():
             if 'Rank' not in line.split():
                 # looping over files for each member of dbase, matched with gens
+                if checkfile==False:
+                    refname=str(line.split()[1])
+                    location=numpy.where(reference==refname)[0]
+                    n=location
+                    checkfile=True
                 name=str(line.split()[0])
                 location=numpy.where(reference==name)[0]
                 if location.size:
