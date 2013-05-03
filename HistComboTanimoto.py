@@ -21,7 +21,7 @@ def main(dir, prefix, title):
     data['combo']=[]
     for file in files:
         name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
-        os.system('sed "1d" < %s | sed "s/ICI 89406/ICI89406/g" > %s' % (file, name))
+        os.system('sed "1d" < %s > %s' % (file, name))
         column3=numpy.loadtxt(name, usecols=(3,))
         column6=numpy.loadtxt(name, usecols=(6,))
         for (pb, shape) in zip(column3, column6):
