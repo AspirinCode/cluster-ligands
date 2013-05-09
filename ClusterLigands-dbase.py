@@ -1,4 +1,5 @@
 from msmbuilder import metrics
+import sys
 import glob
 import os
 import sys
@@ -26,10 +27,11 @@ def format_stereo(list):
                 formatted.append(base.split('_92.pdb')[0].split('molecule_')[1])
             else:
                 base=os.path.basename(x)
-                formatted.append(base.split('.pdb')[0].split('molecule_')[1])
+                formatted.append(base.split('.mol2')[0].split('molecule_')[1].replace('_',
+'-'))
         else:
             print "parser does not recognize molecule file name"
-    return formatted
+    return numpy.array(formatted)
 
 def format_names(list):
     formatted=[]
@@ -89,6 +91,7 @@ def parse(dir, file, output, patterns):
 
 
 def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bindb'):
+    errfile=open('errors.txt', 'w')
     list=range(0, len(database))
     matrix=numpy.zeros((len(database), len(reference)))
     rankmatrix=numpy.zeros((len(database), len(reference)), dtype=int)
@@ -96,9 +99,9 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
     # loop over database
     n=0
     for file in files:
-        name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
+        #name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
         #os.system('sed "1d" < %s | sed "s/ICI 89406/ICI89406/g" > %s' % (file, name))
-        #file=open(name)
+        fhandle=open(file)
         score=-100*numpy.ones((len(reference)))
         indices=-100*numpy.ones((len(reference)))
         names=[]
@@ -106,7 +109,6 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
         index1=column[0]
         index2=column[1]
         checkfile=False
-        fhandle=open(file)
         for line in fhandle.readlines():
             if 'Rank' not in line.split():
                 # looping over files for each member of dbase, matched with gens
@@ -118,6 +120,14 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                 name=str(line.split()[0])
                 location=numpy.where(reference==name)[0]
                 if location.size:
+                    check=numpy.where(indices==location)[0]
+                    if check.size:
+                        s=(max-(float(line.split()[index1])+float(line.split()[index2])))
+                        try: 
+                            s==score[check]
+                            continue
+                        except ValueError:
+                            print "same molecule %s exists, different score in %s" % (name, file)
                     names.append(name)
                     indices[k]=location
                     if add==True:
@@ -130,10 +140,20 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                         score[k]=(max-float(line.split()[index1]))
                         k+=1
                 else:
-                    print "no location for %s", name
+                    errfile.write("no location for %s\n" % name)
                     pass
+        for i in range(0, len(reference)):
+            location=numpy.where(indices==i)[0]
+            if not location.size:
+                errfile.write("no report for %s in %s\n" % (reference[i], file))
         order=numpy.argsort(indices)
         names=numpy.array(names)
+        if -100 in score:
+            import pdb
+            pdb.set_trace() 
+            print file
+            print "not all reports found"
+            #sys.exit(0)
         for i in range(0, len(score)):
             matrix[n,i]=score[order][i]
             rankmatrix[n,i]=indices[i]
@@ -174,6 +194,18 @@ def cluster(distance_cutoff, matrix, database):
         generator_indices.append(new_ind)
     return numpy.array(generator_indices), numpy.array(assignments), numpy.array(distance_list)
 
+def clean_matrix(matrix):
+    for x in range(0, matrix.shape[0]):
+        for y in range(0, matrix.shape[1]):
+            if matrix[x,y]!=matrix[y,x]:
+                maxval=numpy.max([matrix[x,y], matrix[y,x]])
+                matrix[x,y]=maxval
+                matrix[y,x]=maxval
+            else:
+                pass
+    return matrix
+        
+
 def parse_commandline():
     parser = optparse.OptionParser()
     parser.add_option('-d', '--dbase', dest='dbase',
@@ -200,24 +232,26 @@ if __name__ == "__main__":
     cutoff=max-cutoff
     database=numpy.loadtxt(dbase, dtype=str)
     format_dbase=format_stereo(database)
+    numpy.savetxt('%s/formatted_dbase.list' % dir, format_dbase, fmt='%s')
     # here pass in reference as the database
     rankmatrix, matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add,  prefix=prefix)
+    matrix=clean_matrix(matrix)
     gens, assignments, distances=cluster(cutoff, matrix, format_dbase)
     frames=numpy.where(assignments!=-1)[0]
     distances[frames]=[(max-i) for i in distances[frames]]
     numpy.savetxt('%s-assignments.dat' % dbase.split('.list')[0], assignments)
     numpy.savetxt('%s-distances.dat' % dbase.split('.list')[0], distances)
-    print "%s assigned to gens" % len(frames)
+    print "%s assigned to %s gens" % (len(frames), len(gens))
     for i in gens:
         frames=numpy.where(assignments==i)[0]
         ohandle=open('%s/%s_%s_%s_%s_g%s.dat' % (dir, prefix, format_dbase[i], tanimoto, (max-cutoff), i), 'w')
         for (name, val) in zip(format_dbase[frames], distances[frames]):
-            ohandle.write('%s\t%s\n' % (name, (max-val)))
+            ohandle.write('%s\t%s\n' % (name, val))
         if options.writepdb==True:
-            j=i+1
-            hitfile='%s/%s-%s_hits.pdb' % (dir, prefix, j)
+            name=format_dbase[i]
+            hitfile='%s/all-%s-%s_hits.pdb' % (dir, prefix, name)
             output='g%s_%s' % (i, max-cutoff)
             parse(dir, hitfile, output, format_dbase[frames])
     numpy.savetxt('%s/%s_%s_%s_gen_indices.dat' % (dir, prefix, tanimoto, (max-cutoff)), gens, fmt='%i')
-    numpy.savetxt('%s/%s_%s_%s_gen_names.dat' % (dir, prefix, tanimoto, (max-cutoff)), format_dbase[gens], fmt='%i')
+    numpy.savetxt('%s/%s_%s_%s_gen_names.dat' % (dir, prefix, tanimoto,(max-cutoff)), format_dbase[gens], fmt='%s')
 
