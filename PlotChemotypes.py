@@ -58,9 +58,9 @@ def main(sys, percent):
         print "--------path %s---------" % n
         antagonist=[]
         agonist=[]
+        ohandle=open('enrichment/path%s_top%ssummary.txt' % (n, percent*100), 'w')
         for (m, state) in enumerate(path.split()):
             types=get_types(refdata)
-            ohandle=open('path%s_state%s_top%ssummary.txt' % (n, m, percent*100), 'w')
             print state
             file='ranked-state%s-docking-scores.txt' % state
             names=numpy.loadtxt(file, usecols=(0,), dtype=str)
@@ -89,18 +89,29 @@ def main(sys, percent):
                     ant+=types[x]
                 else:   
                     ag+=types[x]
-                ohandle.write('%s\t%s\n' % (x, types[x]))
+                #ohandle.write('%s\t%s\n' % (x, types[x]))
             #print types[x]/counts[x]
             agonist.append(float(ag)/float(total_agonist))
             antagonist.append(float(ant)/float(total_antagonist))
             #print "agonist %% recovered %0.2f" % (float(ag)/float(total_agonist))
             #print "antagonist %% recovered %0.2f" % (float(ant)/float(total_antagonist))    
-        pylab.figure()
-        pylab.scatter(antagonist, agonist, label='Path %s' % n)
-        pylab.legend()
-        pylab.xlabel('antagonist recovery')
-        pylab.ylabel('agonist recovery')
-        pylab.show()
+        k=0
+        for (x, y) in zip(agonist, antagonist):
+            if k==len(agonist):
+                pattern='%s\n' % (x/y)
+            else:
+                pattern='%s\t' % (x/y)
+            ohandle.write(pattern)
+            k+=1
+        plot=False
+        if plot==True:
+            pylab.figure()
+            pylab.scatter(antagonist, agonist, label='Path %s' % n)
+            pylab.legend()
+            pylab.xlabel('antagonist recovery')
+            pylab.ylabel('agonist recovery')
+            pylab.savefig('enrichment/path%s_top%ssummary.png' % (n, percent*100), dpi=300)
+        #pylab.show()
 
 def parse_commandline():
     parser = optparse.OptionParser()
