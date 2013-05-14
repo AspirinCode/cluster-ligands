@@ -32,6 +32,15 @@ def get_counts(refdata):
                         total_agonist+=1
     return counts, total_agonist, total_antagonist
 
+def write_stats(output1, output2, stats1, stats2):
+    for state in stats1.keys():
+        print stats1[state]
+        output1.write('%s\t%s\n' % (state, stats1[state]))
+    for state in stats2.keys():
+        print stats2[state]
+        output2.write('%s\t%s\n' % (state, stats2[state]))
+        
+
 def main(sys, percent):
     percent=float(percent)
     file=open('/home/mlawrenz/wontkill/new-results/annotate_dbase.pickle', 'rb')
@@ -54,6 +63,10 @@ def main(sys, percent):
     #types=[x for x in set(types)]
     paths=open('%s_paths.txt' % sys)
     output=True
+    fagonist=open('enrichment/top%sagonist.txt' % (percent*100), 'w')
+    fantagonist=open('enrichment/top%santagonist.txt' % (percent*100), 'w')
+    agonist_stats=dict()
+    antagonist_stats=dict()
     for (n, path) in enumerate(paths.readlines()):
         print "--------path %s---------" % n
         antagonist=[]
@@ -91,6 +104,20 @@ def main(sys, percent):
                     ag+=types[x]
                 #ohandle.write('%s\t%s\n' % (x, types[x]))
             #print types[x]/counts[x]
+            if state not in agonist_stats.keys():
+                agonist_stats[state]=float(ag)/total_agonist
+            else:
+                try:
+                    agonist_stats[state]!=float(ag)/total_agonist
+                except ValueError:
+                    print "states have difference scores"
+            if state not in antagonist_stats.keys():
+                antagonist_stats[state]=float(ant)/total_antagonist
+            else:
+                try:
+                    antagonist_stats[state]!=float(ant)/total_antagonist
+                except ValueError:
+                    print "states have difference scores"
             agonist.append(float(ag)/float(total_agonist))
             antagonist.append(float(ant)/float(total_antagonist))
             #print "agonist %% recovered %0.2f" % (float(ag)/float(total_agonist))
@@ -111,6 +138,7 @@ def main(sys, percent):
             pylab.xlabel('antagonist recovery')
             pylab.ylabel('agonist recovery')
             pylab.savefig('enrichment/path%s_top%ssummary.png' % (n, percent*100), dpi=300)
+    write_stats(fagonist, fantagonist, agonist_stats, antagonist_stats)
         #pylab.show()
 
 def parse_commandline():
