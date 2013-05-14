@@ -1,4 +1,5 @@
 import pickle, numpy, glob
+import os
 import pylab
 import optparse
 
@@ -63,6 +64,8 @@ def main(sys, percent):
     #types=[x for x in set(types)]
     paths=open('%s_paths.txt' % sys)
     output=True
+    if not os.path.exists('./enrichment'):
+        os.mkdir('./enrichment')
     fagonist=open('enrichment/top%sagonist.txt' % (percent*100), 'w')
     fantagonist=open('enrichment/top%santagonist.txt' % (percent*100), 'w')
     agonist_stats=dict()
