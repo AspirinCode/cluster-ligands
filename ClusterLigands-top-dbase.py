@@ -8,6 +8,17 @@ import pickle
 import numpy
 from msmbuilder import Trajectory
 
+def format_top(list):
+    formatted=[]
+    namesonly=[]
+    for x in list:
+        state=x.split('dbase/')[1].split('/stereo')[0]
+        name=x.split('stereo-')[1].split('-')[0]
+        num=x.split('stereo-')[1].split('-')[1].split('_000')[0]
+        formatted.append('%s-%s-%s' % (state, name, num))
+        namesonly.append(name)
+    return numpy.array(namesonly), numpy.array(formatted)
+
 def format_stereo(list):
     formatted=[]
     for x in list:
@@ -95,17 +106,16 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
     list=range(0, len(database))
     matrix=numpy.zeros((len(database), len(reference)))
     rankmatrix=numpy.zeros((len(database), len(reference)), dtype=int)
-    files=glob.glob('%s/bi-28/%s-*.rpt' % (dir, prefix))
+    files=glob.glob('%s/*/%s-*.rpt' % (dir, prefix))
     # loop over database
-    n=0
     for file in files:
-        subdbase='%s/%s-dbase.list' % (dir, file.split('/'))
-        name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
-        if not os.path.exists(name):
-            os.system('sed "1d" < %s > %s' % (file, name))
-        fhandle=open(name)
-        score=-100*numpy.ones((len(reference)))
-        indices=-100*numpy.ones((len(reference)))
+        subdbase='%s/%s-dbase.list' % (dir, file.split('%s/' % dir)[1].split(prefix)[0].rstrip('/'))
+        format_names, format_sub=format_top(numpy.loadtxt(subdbase, dtype=str))
+        index=file.split('%s/' % dir)[1].split(prefix)[1].split('-')[-1].split('_1.rpt')[0]
+        n=int(index)-1 #take from line of dbase file
+        fhandle=open(file)
+        score=-100*numpy.ones((len(format_names)))
+        indices=-100*numpy.ones((len(format_names)), dtype=int)
         names=[]
         k=0
         if len(column) >1:
@@ -120,10 +130,10 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                 if checkfile==False:
                     refname=str(line.split()[1])
                     location=numpy.where(reference==refname)[0]
-                    n=location
                     checkfile=True
-                name=str(line.split()[0])
-                location=numpy.where(reference==name)[0]
+                location=numpy.where(format_names==line.split()[0])
+                stereo=format_sub[location]
+                location=numpy.where(reference==stereo)[0]
                 if location.size:
                     check=numpy.where(indices==location)[0]
                     if check.size:
@@ -137,8 +147,8 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                             continue
                         except ValueError:
                             print "same molecule %s exists, different score in %s" % (name, file)
-                    names.append(name)
-                    indices[k]=location
+                    names.append(stereo)
+                    indices[k]=int(location)
                     if add==True:
                         score[k]=(max-(float(line.split()[index1])+float(line.split()[index2])))
                         if score[k]<0:
@@ -163,9 +173,9 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
             print file
             print "not all reports found"
             #sys.exit(0)
-        for i in range(0, len(score)):
-            matrix[n,i]=score[order][i]
-            rankmatrix[n,i]=indices[i]
+        for (i,j) in zip(indices, score): #locations in the dbase file
+            matrix[n,i]=j
+    rankmatrix=[]
     return rankmatrix, matrix
 
 def assign(matrix, database, cutoff):
@@ -245,11 +255,14 @@ if __name__ == "__main__":
         add=False
     cutoff=max-cutoff
     database=numpy.loadtxt(dbase, dtype=str)
-    format_dbase=format_stereo(database)
+    format_names, format_dbase=format_top(database)
     numpy.savetxt('%s/formatted_dbase.list' % dir, format_dbase, fmt='%s')
     # here pass in reference as the database
     rankmatrix, matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add,  prefix=prefix)
     matrix=clean_matrix(matrix)
+    pfile=open('%s/%s-matrix.pickle' % (dir, prefix), 'wb')
+    pickle.dump(matrix, pfile)
+    pfile.close()
     gens, assignments, distances=cluster(cutoff, matrix, format_dbase)
     frames=numpy.where(assignments!=-1)[0]
     distances[frames]=[(max-i) for i in distances[frames]]

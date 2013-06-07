@@ -16,16 +16,22 @@ params = {'legend.fontsize': 14,
 pylab.rcParams.update(params)
 
 def main(dir, prefix, title):
-    files=glob.glob('%s/%s*rpt' % (dir, prefix))
+    files=glob.glob('%s/*/%s*rpt' % (dir, prefix))
     data=dict()
     data['combo']=[]
     for file in files:
         name=os.path.dirname(file)+'/mod-'+os.path.basename(file)
-        os.system('sed "1d" < %s > %s' % (file, name))
-        column3=numpy.loadtxt(name, usecols=(3,))
-        column6=numpy.loadtxt(name, usecols=(6,))
-        for (pb, shape) in zip(column3, column6):
-            sum=(pb+shape)
+        os.system('sed "/Rank/d" < %s > %s' % (file, name))
+        print "on file %s" % name
+        if 'eon' in prefix:
+            sums=[]
+            column3=numpy.loadtxt(name, usecols=(3,))
+            column6=numpy.loadtxt(name, usecols=(6,))
+            for (pb, shape) in zip(column3, column6):
+                sums.append(pb+shape)
+        else:
+            sums=numpy.loadtxt(name, usecols=(3,))
+        for sum in sums:
             if sum<0:
                 data['combo'].append(0)
             elif sum >0 and sum<= 2.0:
@@ -49,11 +55,11 @@ def main(dir, prefix, title):
     pylab.legend()
     pylab.xlim(0,2)
     pylab.ylim(0,2)
-    pylab.xlabel('Shape + PB Tanimoto Scores')
+    pylab.xlabel('Combo Tanimoto Scores')
     pylab.ylabel('Normed Probability')
     pylab.title('%s' % title)
     pylab.savefig('%s/%s_%s_combo_tanimotos.png' % (dir, prefix, title), dpi=300)
-    pylab.show()
+    #pylab.show()
 
 def parse_commandline():
     parser = optparse.OptionParser()
