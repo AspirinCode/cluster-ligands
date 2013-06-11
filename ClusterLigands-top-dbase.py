@@ -258,27 +258,46 @@ if __name__ == "__main__":
     format_names, format_dbase=format_top(database)
     numpy.savetxt('%s/formatted_dbase.list' % dir, format_dbase, fmt='%s')
     # here pass in reference as the database
-    rankmatrix, matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add,  prefix=prefix)
-    matrix=clean_matrix(matrix)
-    pfile=open('%s/%s-matrix.pickle' % (dir, prefix), 'wb')
-    pickle.dump(matrix, pfile)
-    pfile.close()
-    gens, assignments, distances=cluster(cutoff, matrix, format_dbase)
-    frames=numpy.where(assignments!=-1)[0]
-    distances[frames]=[(max-i) for i in distances[frames]]
-    numpy.savetxt('%s-assignments.dat' % dbase.split('.list')[0], assignments)
-    numpy.savetxt('%s-distances.dat' % dbase.split('.list')[0], distances)
-    print "%s assigned to %s gens" % (len(frames), len(gens))
-    for i in gens:
-        frames=numpy.where(assignments==i)[0]
-        ohandle=open('%s/%s_%s_%s_%s_g%s.dat' % (dir, prefix, format_dbase[i], tanimoto, (max-cutoff), i), 'w')
-        for (name, val) in zip(format_dbase[frames], distances[frames]):
-            ohandle.write('%s\t%s\n' % (name, val))
+    if os.path.exists('%s-assignments.dat' % dbase.split('.list')[0]):
+        print "assignments exist in %s cutoff %s" % (dir, cutoff)
+        assignments=numpy.loadtxt('%s-assignments.dat' % dbase.split('.list')[0])
+        distances=numpy.loadtxt('%s-distances.dat' % dbase.split('.list')[0])
+        gens=numpy.loadtxt('%s/%s_%s_%s_gen_indices.dat' % (dir, prefix, tanimoto, (max-cutoff)))
         if options.writepdb==True:
-            name=format_dbase[i]
-            hitfile='%s/all-%s-%s_hits.pdb' % (dir, prefix, name)
-            output='g%s_%s' % (i, max-cutoff)
-            parse(dir, hitfile, output, format_dbase[frames])
-    numpy.savetxt('%s/%s_%s_%s_gen_indices.dat' % (dir, prefix, tanimoto, (max-cutoff)), gens, fmt='%i')
-    numpy.savetxt('%s/%s_%s_%s_gen_names.dat' % (dir, prefix, tanimoto,(max-cutoff)), format_dbase[gens], fmt='%s')
+            print "writing structure files"
+            for i in gens:
+                frames=numpy.where(assignments==i)[0]
+                name=format_dbase[i]
+                hitfile='%s/%s-%s_hits.pdb' % (dir, prefix, name)
+                output='g%s_%s' % (i, max-cutoff)
+                parse(dir, hitfile, output, format_dbase[frames])
+    else:
+        if os.path.exists('%s/%s-matrix.pickle' % (dir, prefix)):
+            print "loading score matrix from %s" % dir
+        else:
+            print "getting score matrix"
+            rankmatrix, matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add,  prefix=prefix)
+            matrix=clean_matrix(matrix)
+            pfile=open('%s/%s-matrix.pickle' % (dir, prefix), 'wb')
+            pickle.dump(matrix, pfile)
+            pfile.close()
+        print "clustering scores"
+        gens, assignments, distances=cluster(cutoff, matrix, format_dbase)
+        frames=numpy.where(assignments!=-1)[0]
+        distances[frames]=[(max-i) for i in distances[frames]]
+        numpy.savetxt('%s-assignments.dat' % dbase.split('.list')[0], assignments)
+        numpy.savetxt('%s-distances.dat' % dbase.split('.list')[0], distances)
+        print "%s assigned to %s gens" % (len(frames), len(gens))
+        for i in gens:
+            frames=numpy.where(assignments==i)[0]
+            ohandle=open('%s/%s_%s_%s_%s_g%s.dat' % (dir, prefix, format_dbase[i], tanimoto, (max-cutoff), i), 'w')
+            for (name, val) in zip(format_dbase[frames], distances[frames]):
+                ohandle.write('%s\t%s\n' % (name, val))
+            if options.writepdb==True:
+                name=format_dbase[i]
+                hitfile='%s/all-%s-%s_hits.pdb' % (dir, prefix, name)
+                output='g%s_%s' % (i, max-cutoff)
+                parse(dir, hitfile, output, format_dbase[frames])
+        numpy.savetxt('%s/%s_%s_%s_gen_indices.dat' % (dir, prefix, tanimoto, (max-cutoff)), gens, fmt='%i')
+        numpy.savetxt('%s/%s_%s_%s_gen_names.dat' % (dir, prefix, tanimoto,(max-cutoff)), format_dbase[gens], fmt='%s')
 
