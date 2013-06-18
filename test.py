@@ -12,17 +12,11 @@ def format_top(list):
     formatted=[]
     namesonly=[]
     for x in list:
-        state=x.split('/')[0]
+        state=x.split('dbase/')[1].split('/stereo')[0]
         name=x.split('stereo-')[1].split('-')[0]
         num=x.split('stereo-')[1].split('-')[1].split('_000')[0]
-        if 'ICI-' in x.split()[0] or 'AH3474-' in x.split()[0]:
-            name=x.split('stereo-')[1].split('-')[0]+x.split('stereo-')[1].split('-')[1]
-            num=x.split('stereo-')[1].split('-')[2].split('_000.mol2')[0]
-            formatted.append('%s-%s-%s' % (state, name, num))
-            namesonly.append(name)
-        else:
-            formatted.append('%s-%s-%s' % (state, name, num))
-            namesonly.append(name)
+        formatted.append('%s-%s-%s' % (state, name, num))
+        namesonly.append(name)
     return numpy.array(namesonly), numpy.array(formatted)
 
 def format_stereo(list):
@@ -115,7 +109,6 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
     files=glob.glob('%s/*/%s-*.rpt' % (dir, prefix))
     # loop over database
     for file in files:
-        print "on file %s" % file
         subdbase='%s/%s-dbase.list' % (dir, file.split('%s/' % dir)[1].split(prefix)[0].rstrip('/'))
         format_names, format_sub=format_top(numpy.loadtxt(subdbase, dtype=str))
         index=file.split('%s/' % dir)[1].split(prefix)[1].split('-')[-1].split('_1.rpt')[0]
@@ -138,11 +131,7 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                     refname=str(line.split()[1])
                     location=numpy.where(reference==refname)[0]
                     checkfile=True
-                if 'ICI-' in line.split()[0] or 'AH3474-' in line.split()[0]:
-                    testname=line.split()[0].split('-')[0]+line.split()[0].split('-')[1]
-                else:
-                    testname=line.split()[0]
-                location=numpy.where(format_names==testname)
+                location=numpy.where(format_names==line.split()[0])
                 stereo=format_sub[location]
                 location=numpy.where(reference==stereo)[0]
                 if location.size:
@@ -170,7 +159,7 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                         score[k]=(max-float(line.split()[index1]))
                         k+=1
                 else:
-                    errfile.write("no location for %s\n" % stereo)
+                    errfile.write("no location for %s\n" % name)
                     pass
         for i in range(0, len(reference)):
             location=numpy.where(indices==i)[0]
@@ -179,9 +168,11 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
         order=numpy.argsort(indices)
         names=numpy.array(names)
         if -100 in score:
+            import pdb
+            pdb.set_trace() 
             print file
             print "not all reports found"
-            sys.exit(0)
+            #sys.exit(0)
         for (i,j) in zip(indices, score): #locations in the dbase file
             matrix[n,i]=j
     rankmatrix=[]
