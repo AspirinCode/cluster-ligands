@@ -75,6 +75,15 @@ def format_names(list):
                 formatted.append(base.split('.pdb')[0].split('molecule_')[1])
     return numpy.array(formatted)
 
+def checkpoint(dir, prefix, n, matrix):
+    if os.path.exists('%s/%s-matrix-chkpt.pickle' % (dir, prefix)):
+        os.system('rm %s/%s-matrix-chkpt.pickle' % (dir, prefix))
+    pfile=open('%s/%s-matrix-chkpt.pickle' % (dir, prefix), 'wb')
+    pickle.dump(matrix, pfile)
+    pfile.close()
+    numpy.savetxt('%s/chkpt-dbaseindex.dat' % dir, [n,], fmt='%i')
+    return
+
 # make a metric, where you have a grid of all distances to all
 # call evaluation by matrix order
 def parse(dir, file, output, patterns):
@@ -107,32 +116,37 @@ def parse(dir, file, output, patterns):
     return
 
 
-def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bindb'):
+def get_matrix(dir, database, reference, column, max, add=False, start=0, restart=None, prefix='eon-bindb'):
     errfile=open('errors.txt', 'w')
     list=range(0, len(database))
-    matrix=numpy.zeros((len(database), len(reference)))
-    rankmatrix=numpy.zeros((len(database), len(reference)), dtype=int)
-    files=glob.glob('%s/*/%s-*.rpt' % (dir, prefix))
-    # loop over database
-    for file in files:
-        print "on file %s" % file
-        subdbase='%s/%s-dbase.list' % (dir, file.split('%s/' % dir)[1].split(prefix)[0].rstrip('/'))
-        format_names, format_sub=format_top(numpy.loadtxt(subdbase, dtype=str))
-        index=file.split('%s/' % dir)[1].split(prefix)[1].split('-')[-1].split('_1.rpt')[0]
-        n=int(index)-1 #take from line of dbase file
-        fhandle=open(file)
-        score=-100*numpy.ones((len(format_names)))
-        indices=-100*numpy.ones((len(format_names)), dtype=int)
-        names=[]
-        k=0
-        if len(column) >1:
-            index1=column[0]
-            index2=column[1]
-        else:
-            index1=column[0]
-        checkfile=False
-        for line in fhandle.readlines():
-            if 'Rank' not in line.split():
+    dirs=numpy.loadtxt('%s/directory-list.txt' % dir, dtype=str)
+    if restart==None:
+        matrix=numpy.zeros((len(database), len(reference)))
+    else:
+        matrix=restart
+    # for each n, want to load each dir into n column of matrix 
+    for n in range(start, len(database)):
+        index=n+1
+        item=database[n]
+        for subdir in dirs:
+            format_names, format_sub=format_top(numpy.loadtxt(subdir, dtype=str))
+            subdir=subdir.rstrip('-dbase.list').split('/')[-1]
+            file='%s/%s/%s-%s-%s_1.rpt' % (dir, subdir, prefix, subdir, index)
+            print "on file %s" % file
+            fhandle=open(file)
+            score=-100*numpy.ones((len(format_names)))
+            indices=-100*numpy.ones((len(format_names)), dtype=int)
+            names=[]
+            k=0
+            if len(column) >1:
+                index1=column[0]
+                index2=column[1]
+            else:
+                index1=column[0]
+            checkfile=False
+            for line in fhandle.readlines():
+                if 'Rank' in line.split():
+                    continue
                 # looping over files for each member of dbase, matched with gens
                 if checkfile==False:
                     refname=str(line.split()[1])
@@ -172,20 +186,21 @@ def get_matrix(dir, database, reference, column, max, add=False, prefix='eon-bin
                 else:
                     errfile.write("no location for %s\n" % stereo)
                     pass
-        for i in range(0, len(reference)):
-            location=numpy.where(indices==i)[0]
-            if not location.size:
-                errfile.write("no report for %s in %s\n" % (reference[i], file))
-        order=numpy.argsort(indices)
-        names=numpy.array(names)
-        if -100 in score:
-            print file
-            print "not all reports found"
-            sys.exit(0)
-        for (i,j) in zip(indices, score): #locations in the dbase file
-            matrix[n,i]=j
-    rankmatrix=[]
-    return rankmatrix, matrix
+            for i in range(0, len(reference)):
+                location=numpy.where(indices==i)[0]
+                if not location.size:
+                    errfile.write("no report for %s in %s\n" % (reference[i], file))
+            order=numpy.argsort(indices)
+            names=numpy.array(names)
+            if -100 in score:
+                print file
+                print "not all reports found"
+                sys.exit(0)
+            for (i,j) in zip(indices, score): #locations in the dbase file
+                matrix[n,i]=j
+            if index % 10==0:
+                checkpoint(dir, prefix, n, matrix)
+    return matrix
 
 def assign(matrix, database, cutoff):
     distances=-1*numpy.ones(len(database))
@@ -265,6 +280,9 @@ if __name__ == "__main__":
     cutoff=max-cutoff
     database=numpy.loadtxt(dbase, dtype=str)
     format_names, format_dbase=format_top(database)
+    if not os.path.exists('%s/directory-list.txt' % dir):
+        dirs=glob.glob('%s/*-dbase.list' % dir)
+        numpy.savetxt('%s/directory-list.txt' % dir, dirs, fmt='%s')
     numpy.savetxt('%s/formatted_dbase.list' % dir, format_dbase, fmt='%s')
     # here pass in reference as the database
     if os.path.exists('%s-assignments.dat' % dbase.split('.list')[0]):
@@ -289,18 +307,26 @@ if __name__ == "__main__":
                 output='g%s_%s' % (i, max-cutoff)
                 parse(dir, hitfile, output, format_dbase[frames])
     else:
-        if os.path.exists('%s/%s-matrix.pickle' % (dir, prefix)):
+        if os.path.exists('%s/%s-matrix-chkpt.pickle' % (dir, prefix)):
+            print "loading checkpoint score matrix from %s" % dir
+            pfile=open('%s/%s-matrix-chkpt.pickle' % (dir, prefix), 'rb')
+            matrix=pickle.load(pfile)
+            pfile.close()
+            index=numpy.loadtxt('chkpt-dbaseindex.dat', dtype=int)
+            matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add, start=index, restart=matrix, prefix=prefix)
+        elif os.path.exists('%s/%s-matrix.pickle' % (dir, prefix)):
             print "loading score matrix from %s" % dir
             pfile=open('%s/%s-matrix.pickle' % (dir, prefix), 'rb')
             matrix=pickle.load(pfile)
             pfile.close()
-        else:
+
+        elif not os.path.exists('%s/%s-matrix.pickle' % (dir, prefix)) and not os.path.exists('%s/%s-matrix-chkpt.pickle' % (dir, prefix)):
             print "getting score matrix"
-            rankmatrix, matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add,  prefix=prefix)
-            matrix=clean_matrix(matrix)
-            pfile=open('%s/%s-matrix.pickle' % (dir, prefix), 'wb')
-            pickle.dump(matrix, pfile)
-            pfile.close()
+            matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add, start=0, restart=None,  prefix=prefix)
+        matrix=clean_matrix(matrix)
+        pfile=open('%s/%s-matrix.pickle' % (dir, prefix), 'wb')
+        pickle.dump(matrix, pfile)
+        pfile.close()
         print "clustering scores"
         gens, assignments, distances=cluster(cutoff, matrix, format_dbase)
         frames=numpy.where(assignments!=-1)[0]
