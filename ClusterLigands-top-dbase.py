@@ -130,7 +130,7 @@ def get_matrix(dir, database, reference, column, max, add=False, start=0, restar
         item=database[n]
         for subdir in dirs:
             format_names, format_sub=format_top(numpy.loadtxt(subdir, dtype=str))
-            subdir=subdir.rstrip('-dbase.list').split('/')[-1]
+            subdir=subdir.rstrip('-top-dbase.list').split('/')[-1]
             file='%s/%s/%s-%s-%s_1.rpt' % (dir, subdir, prefix, subdir, index)
             print "on file %s" % file
             fhandle=open(file)
@@ -198,7 +198,7 @@ def get_matrix(dir, database, reference, column, max, add=False, start=0, restar
                 sys.exit(0)
             for (i,j) in zip(indices, score): #locations in the dbase file
                 matrix[n,i]=j
-            if index % 10==0:
+            if index % 1000==0:
                 checkpoint(dir, prefix, n, matrix)
     return matrix
 
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     database=numpy.loadtxt(dbase, dtype=str)
     format_names, format_dbase=format_top(database)
     if not os.path.exists('%s/directory-list.txt' % dir):
-        dirs=glob.glob('%s/*-dbase.list' % dir)
+        dirs=glob.glob('%s/*-top-dbase.list' % dir)
         numpy.savetxt('%s/directory-list.txt' % dir, dirs, fmt='%s')
     numpy.savetxt('%s/formatted_dbase.list' % dir, format_dbase, fmt='%s')
     # here pass in reference as the database
@@ -312,7 +312,7 @@ if __name__ == "__main__":
             pfile=open('%s/%s-matrix-chkpt.pickle' % (dir, prefix), 'rb')
             matrix=pickle.load(pfile)
             pfile.close()
-            index=numpy.loadtxt('chkpt-dbaseindex.dat', dtype=int)
+            index=numpy.loadtxt('%s/chkpt-dbaseindex.dat' % dir, dtype=int)
             matrix=get_matrix(dir, format_dbase, format_dbase, column, max, add, start=index, restart=matrix, prefix=prefix)
         elif os.path.exists('%s/%s-matrix.pickle' % (dir, prefix)):
             print "loading score matrix from %s" % dir
